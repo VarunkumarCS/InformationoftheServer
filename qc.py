@@ -15,7 +15,6 @@ parser.add_argument('--firmware', help='Get the firmware information', action= "
 parser.add_argument('--boot', help='Get the boot order information', action= "store_true", required=False)
 parser.add_argument('--memory', help='Get the memory information', action= "store_true", required=False)
 parser.add_argument('--mac', help='Get the information about the mac addresses', action= "store_true", required=False)
-parser.add_argument('--fans', help='Get the information of the fans', action= "store_true", required=False)
 parser.add_argument('--drives', help='Get the information of the physical drives', action= "store_true", required=False)
 parser.add_argument('--all', help='Get the Information of the Server', action="store_true", required=False)
 
@@ -224,23 +223,6 @@ def get_physical_drives():
     print(tabulate(drives_info, headers=["Id", "HealthRollup"], tablefmt="pretty", missingval= "N/A"))
     print()
 
-def get_fan_information():
-    if args["x"]:
-         response = requests.get('https://%s/redfish/v1/Chassis/System.Embedded.1/Thermal' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Chassis/System.Embedded.1/Thermal' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data = response.json()
-
-    if response.status_code != 200:
-        logging.warning("\n- WARNING, GET request failed to get the information of the server %s, status code %s returned." % (idrac_ip,response.status_code))
-        logging.warning(data)
-        sys.exit(0)  
-
-    table1 = [("Fans", data['Fans'])]
-    print("\n=================== HEALTH INFORMATION OF THE FANS ===================")
-    #print(tabulate(table1, headers=["Keys"], tablefmt="pretty", missingval= "N/A"))
-    pp(table1)
-
 if __name__ == "__main__":
     if args["script_examples"]:
         script_examples()
@@ -272,8 +254,6 @@ if __name__ == "__main__":
         get_physical_drives()
     if args["memory"]:
         get_memory_information()
-    if args["fans"]:
-        get_fan_information()
     if args["all"]:
         get_information_of_the_server()
         get_firmware_information_of_the_server()
