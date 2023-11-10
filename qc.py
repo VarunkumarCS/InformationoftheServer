@@ -1,20 +1,29 @@
 import argparse, getpass, logging, requests, sys, warnings
 from tabulate import tabulate
+from pprint import pprint as pp
 warnings.filterwarnings("ignore")
 
-parser = argparse.ArgumentParser(description="Python script using Redfish API to either get current server power state and possible power state values or execute server power state change")
+parser = argparse.ArgumentParser(description="Python script using Redfish API to get the Health Information of the Server")
 parser.add_argument('-ip', help='Pass in iDRAC IP address', required=False)
 parser.add_argument('-u', help='Pass in iDRAC username', required=False)
 parser.add_argument('-p', help='Pass in iDRAC password. If not passed in, script will prompt to enter password which will not be echoed to the screen', required=False)
 parser.add_argument('--ssl', help='Verify SSL certificate for all Redfish calls, pass in \"true\". This argument is optional, if you do not pass in this argument, all Redfish calls will ignore SSL cert checks.', required=False)
 parser.add_argument('-x', help='Pass in iDRAC X-auth token session ID to execute all Redfish calls instead of passing in username/password', required=False)
 parser.add_argument('--script-examples', help='Get executing script examples', action="store_true", dest="script_examples", required=False)
-parser.add_argument('--get', help='Get the Information of the Server', action="store_true", required=False)
+parser.add_argument('--system', help='Get the system information', action= "store_true", required=False)
+parser.add_argument('--firmware', help='Get the firmware information', action= "store_true", required=False)
+parser.add_argument('--boot', help='Get the boot order information', action= "store_true", required=False)
+parser.add_argument('--memory', help='Get the memory information', action= "store_true", required=False)
+parser.add_argument('--mac', help='Get the information about the mac addresses', action= "store_true", required=False)
+parser.add_argument('--fans', help='Get the information of the fans', action= "store_true", required=False)
+parser.add_argument('--drives', help='Get the information of the physical drives', action= "store_true", required=False)
+parser.add_argument('--all', help='Get the Information of the Server', action="store_true", required=False)
+
 args = vars(parser.parse_args())
 logging.basicConfig(format='%(message)s', stream=sys.stdout, level=logging.INFO)
 
 def script_examples():
-    print("""\n- qc.py -ip 10.2.161.103 -u root -p calvin --get, this will get the information of the Server.""")
+    print("""\n- python3 qc.py -ip 10.2.161.103 -u root -p calvin --all, this will get the information of the Server.""")
     sys.exit(0)
 
 def check_supported_idrac_version():
@@ -45,16 +54,16 @@ def get_information_of_the_server():
     data1 = response.json()
 
     if args["x"]:
-         response = requests.get('https://%s/redfish/v1/Managers/iDRAC.Embedded.1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Managers/iDRAC.Embedded.1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data2 = response.json()
-
-    if args["x"]:
          response = requests.get('https://%s/redfish/v1/Chassis/System.Embedded.1/Power' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
     else:
         response = requests.get('https://%s/redfish/v1/Chassis/System.Embedded.1/Power' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
     data3 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/Bios' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/Bios' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data5 = response.json()
 
     if response.status_code != 200:
         logging.warning("\n- WARNING, GET request failed to get the information of the server %s, status code %s returned." % (idrac_ip,response.status_code))
@@ -66,8 +75,7 @@ def get_information_of_the_server():
         ("Serial Number", data1['SerialNumber']),
         ("UUID", data1['UUID']),
         ("Power State", data1['PowerState']),
-        ("Bios Version", data1['BiosVersion']),
-        ("Firmware Version", data2['FirmwareVersion']),
+        ("Boot Order", data5['Attributes']['SetBootOrderEn']),
         ("Total Number of the Processors", data1['ProcessorSummary']['Count'])
     ]
 
@@ -81,7 +89,67 @@ def get_information_of_the_server():
     print()
 
     print("\n=================== HEALTH INFORMATION OF THE SERVER ===================")
-    print(tabulate(table2, headers=["Keys", "Output"], tablefmt="pretty"))
+    print(tabulate(table2, headers=["Keys", "Output"], tablefmt="pretty", missingval= "N/A"))
+    print()
+
+def get_firmware_information_of_the_server():
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data1 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/Managers/iDRAC.Embedded.1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/Managers/iDRAC.Embedded.1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data2 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/Chassis/Enclosure.Internal.0-1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/Chassis/Enclosure.Internal.0-1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data3 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110220-26.35.10.12__NIC.Integrated.1-1-1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110220-26.35.10.12__NIC.Integrated.1-1-1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data6 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110220-26.35.10.12__NIC.Integrated.1-2-1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110220-26.35.10.12__NIC.Integrated.1-2-1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data7 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110222-26.35.10.12__NIC.Slot.2-1-1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110222-26.35.10.12__NIC.Slot.2-1-1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data8 = response.json()
+
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110222-26.35.10.12__NIC.Slot.2-2-1' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/UpdateService/FirmwareInventory/Current-110222-26.35.10.12__NIC.Slot.2-2-1' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data9 = response.json()
+
+    if response.status_code != 200:
+        logging.warning("\n- WARNING, GET request failed to get the information of the server %s, status code %s returned." % (idrac_ip,response.status_code))
+        logging.warning(data1)
+        sys.exit(0)       
+    table1 = [
+        ("Bios Version", data1['BiosVersion']),
+        ("iDRAC Version", data2['FirmwareVersion']),
+        ("Backplane", data3['Oem']['Dell']['DellPCIeSSDBackPlane']['FirmwareVersion']),
+        ("NVIDIA ConnectX-6 Lx 2x 25G SFP28 OCP3.0 SFF - 94:6D:AE:DA:EC:80", data6["Version"]),
+        ("NVIDIA ConnectX-6 Lx 2x 25G SFP28 OCP3.0 SFF - 94:6D:AE:DA:EC:81", data7["Version"]),
+        ("NVIDIA ConnectX-6 Lx 2x 25G SFP28 - B8:3F:D2:96:24:F2", data8["Version"]),
+        ("NVIDIA ConnectX-6 Lx 2x 25G SFP28 - B8:3F:D2:96:24:F3", data9["Version"])]
+
+    print("\n=================== FIRMWARE INFORMATION OF THE SERVER ===================")
+    print(tabulate(table1, headers=["Keys", "Output"], tablefmt="pretty"))
     print()
 
 def get_boot_order():
@@ -96,7 +164,7 @@ def get_boot_order():
         sys.exit(0)  
     print("\n=================== INFORMATION OF THE BOOT ORDER ===================")
     table = [("Description" , data['Description']), ("State of Current Boot" , data['SecureBootCurrentBoot']), ("Boot Mode", data['SecureBootMode'])]
-    print(tabulate(table, headers=["Keys", "Output"], tablefmt="pretty"))
+    print(tabulate(table, headers=["Keys", "Output"], tablefmt="pretty", missingval= "N/A"))
     print()
 
 def get_memory_information():
@@ -126,7 +194,7 @@ def get_memory_information():
     print("\n=================== INFORMATION OF THE MEMORY ===================")
     table = [("Memory Size" , data['MemorySummary']['TotalSystemMemoryGiB'])]
     print(tabulate(table, headers=["Keys", "Output"], tablefmt="pretty"))
-    print(tabulate(memory_information, headers=["Id", "Health"], tablefmt="pretty"))
+    print(tabulate(memory_information, headers=["Id", "Health"], tablefmt="pretty", missingval= "N/A"))
     print()
 
 def get_the_mac_address():
@@ -140,86 +208,12 @@ def get_the_mac_address():
         data = response.json()
         mac_addresses.append((data['Description'], data['MACAddress'], data['Status']['Health']))
     print("\n=================== INFORMATION OF MAC ADDRESSES ===================")
-    print(tabulate(mac_addresses, headers=["Description", "MAC Address", "Health"], tablefmt="pretty"))
-
-def get_pcie_device_function_inventory():
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/59-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/59-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data1 = response.json()
-    print()
-    print("\n=================== INFORMATION OF PCIE DEVICES ===================")
-    
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/136-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/136-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data2 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-23' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-23' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data3 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-28' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-28' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data4 = response.json()
-   
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/25-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/25-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data5 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/24-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/24-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data6 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data7 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-17' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-17' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data8 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-31' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/0-31' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data9 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/3-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/3-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data10 = response.json()
-
-    if args["x"]:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/137-0' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
-    else:
-        response = requests.get('https://%s/redfish/v1/Systems/System.Embedded.1/PCIeDevices/137-0' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
-    data11 = response.json()
-
-    table = [(data1['@odata.type'], data1['Description']),(data2['@odata.type'], data2['Description']),(data3['@odata.type'], data3['Description']),(data4['@odata.type'], data4['Description']),
-             (data5['@odata.type'], data5['Description']),(data6['@odata.type'], data6['Description']),(data7['@odata.type'], data7['Description']),(data8['@odata.type'], data8['Description']),
-             (data9['@odata.type'], data9['Description']),(data10['@odata.type'], data10['Description']), (data11['@odata.type'], data11['Description'])]
-    print(tabulate(table, headers=["Id", "Description"], tablefmt="pretty"))
+    print(tabulate(mac_addresses, headers=["Description", "MAC Address", "Health"], tablefmt="pretty", missingval= "N/A"))
 
 def get_physical_drives():
     drives_info = []
     for i in range(8):
-        url = 'https://%s/redfish/v1/Systems/System.Embedded.1/Storage/NonRAID.Integrated.1-1/Drives/Disk.Bay.%d:Enclosure.Internal.0-1:NonRAID.Integrated.1-1' % (idrac_ip, i)
+        url = 'https://%s/redfish/v1/Systems/System.Embedded.1/Storage/CPU.1/Drives/Disk.Bay.%d:Enclosure.Internal.0-1' % (idrac_ip, i)
         if args["x"]:
             response = requests.get(url, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
         else:
@@ -227,8 +221,25 @@ def get_physical_drives():
         data = response.json()
         drives_info.append((data['Id'], data['Status']['HealthRollup']))
     print("\n=================== INFORMATION OF PHYSICAL DRIVE  ===================" )
-    print(tabulate(drives_info, headers=["Id", "HealthRollup"], tablefmt="pretty"))
+    print(tabulate(drives_info, headers=["Id", "HealthRollup"], tablefmt="pretty", missingval= "N/A"))
     print()
+
+def get_fan_information():
+    if args["x"]:
+         response = requests.get('https://%s/redfish/v1/Chassis/System.Embedded.1/Thermal' % idrac_ip, verify=verify_cert, headers={'X-Auth-Token': args["x"]})
+    else:
+        response = requests.get('https://%s/redfish/v1/Chassis/System.Embedded.1/Thermal' % idrac_ip, verify=verify_cert, auth=(idrac_username, idrac_password))
+    data = response.json()
+
+    if response.status_code != 200:
+        logging.warning("\n- WARNING, GET request failed to get the information of the server %s, status code %s returned." % (idrac_ip,response.status_code))
+        logging.warning(data)
+        sys.exit(0)  
+
+    table1 = [("Fans", data['Fans'])]
+    print("\n=================== HEALTH INFORMATION OF THE FANS ===================")
+    #print(tabulate(table1, headers=["Keys"], tablefmt="pretty", missingval= "N/A"))
+    pp(table1)
 
 if __name__ == "__main__":
     if args["script_examples"]:
@@ -253,14 +264,22 @@ if __name__ == "__main__":
     else:
         logging.error("\n- FAIL, invalid argument values or not all required parameters passed in. See help text or argument --script-examples for more details.")
         sys.exit(0)
-    
-    if args["get"]:
+    if args["system"]:
         get_information_of_the_server()
-        get_boot_order()
-        get_memory_information()
-        get_the_mac_address()
-        get_pcie_device_function_inventory()
+    if args["firmware"]:
+        get_firmware_information_of_the_server()
+    if args["drives"]:
         get_physical_drives()
-
+    if args["memory"]:
+        get_memory_information()
+    if args["fans"]:
+        get_fan_information()
+    if args["all"]:
+        get_information_of_the_server()
+        get_firmware_information_of_the_server()
+        get_boot_order()
+        get_the_mac_address()
+        get_physical_drives()
+        get_memory_information()
     else:
         logging.error("\n- FAIL, invalid argument values or not all required parameters passed in. See help text or argument --script-examples for more details.")
